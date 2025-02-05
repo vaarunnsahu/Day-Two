@@ -1,0 +1,34 @@
+name: Build and push  ## workflow name
+
+on:   ## event when we need to start the execution like push, pull,issue
+  #push:
+  #  branches:
+  #    - master
+  #  paths:
+  #    - day1/**
+  workflow_dispatch:  ### manual push
+
+jobs:  
+  build: ###we can run multiple jobs in a workflow here build is a name for the first job
+    runs-on: ubuntu-latest ### This build is going to run on ubuntu vm or a container
+
+    steps:   ###every job is running using some steps 
+      - name: Checkout code ### This is first step and followed by name. what we are going to do here we are copying local code to this container or vm
+        uses: actions/checkout@v2  ### This is global actions which is created my github, we can use it without writing it
+
+      - name: Configure AWS credentials ###steps 2 for aws configuration
+        uses: aws-actions/configure-aws-credentials@v1 
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR ### step3
+        run: |  ### mutiple command we need run in linux we use pipe line symbol (|) and the key-word ( run ) we used for exuecting some commands in linux
+          aws ecr get-login-password --region us-east-1 | \
+          docker login --username AWS --password-stdin 816069150653.dkr.ecr.us-east-1.amazonaws.com
+
+      - name: Build Docker image ## step4
+        run: |
+          docker build -t 816069150653.dkr.ecr.us-east-1.amazonaws.com/flaskrepo:v1 ./day1
+          docker push 816069150653.dkr.ecr.us-east-1.amazonaws.com/flaskrepo:v1
