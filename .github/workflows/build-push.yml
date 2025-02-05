@@ -4,8 +4,6 @@ on:   # Event - Defines when this workflow should trigger
   push:
     branches:
       - master
-    paths:
-      - day1/**  # Runs only if files inside 'day1/' change
   workflow_dispatch:  # Allows manual triggering of workflow
 
 jobs:  
