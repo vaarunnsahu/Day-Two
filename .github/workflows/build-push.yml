@@ -31,4 +31,5 @@ jobs:
       - name: Build and Push Docker image  # Step 4 - Build and push image to ECR  
         run: |
           docker build -t 767398153139.dkr.ecr.ap-south-1.amazonaws.com/devops-bootcamp:latest .
+          docker tag 767398153139.dkr.ecr.ap-south-1.amazonaws.com/devops-bootcamp:latest 767398153139.dkr.ecr.ap-south-1.amazonaws.com/devops-bootcamp:daytwo
           docker push 767398153139.dkr.ecr.ap-south-1.amazonaws.com/devops-bootcamp:daytwo
