@@ -1,15 +1,16 @@
 name: Deploy  # Name of the workflow
 
-on:  # Event that triggers the workflow
-  push: 
+on:   
+  push:
     branches:
       - master
+  workflow_dispatch:  # Allows manual triggering of workflow
       
-env:  # Environment variables
+env:  
   AWS_REGION: "ap-south-1"
   AWS_EC2: "daytwo"
   ECR_REPO: "devops-bootcamp"
-  GIT_SHA: ${{ github.sha }}  # Corrected syntax
+  GIT_SHA: ${{ github.sha }}  
   AWS_ACCOUNT_ID: "767398153139"
 
 jobs:
