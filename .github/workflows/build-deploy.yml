@@ -67,9 +67,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            echo "Cleaning up the VM"
-            docker rm -f $(docker ps -aq) || true
-            docker rmi -f $(docker images -q) || true
+          
+
+      - name: Run Docker commands
+        run: |
+           sudo docker rm -f $(docker ps -aq) || true
+           sudo docker rmi -f $(docker images -q) || true
+           sudo docker run -td -p 3002:5000 ***.dkr.ecr.ap-south-1.amazonaws.com/devops-bootcamp:e230c63f0437ff70f148783e6e410c374654b3e9
             
             echo "Logging in to ECR and running the container"
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
