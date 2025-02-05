@@ -1,78 +1,74 @@
-name: Deploy  ## workflow name
+name: Deploy  # Name of the workflow
 
-on:  ### events
-  push:
+on:  # Event that triggers the workflow
+  push: 
     branches:
       - master
-    paths:
-      - day1/**
-env:   ###enviornment we are passing inside container 
-  AWS_REGION: "us-east-1"
-  AWS_EC2: "flask_app"
-  ECR_REPO: "flaskrepo"
-  GIT_SHA: ${{ github.sha }}  ### This is gloabl variable for github to get commit id numbers
-  AWS_ACCOUNT_ID: "816069150653"
+      
+env:  #Environment variables for the workflow to use in the jobs 
+  AWS_REGION: "ap-south-1"
+  AWS_EC2: "daytwo"
+  ECR_REPO: "devops-bootcamp"
+  GIT_SHA: "${{ github.sha }}"  #Global variable for GitHub to get commit ID
+  AWS_ACCOUNT_ID: "767398153139"
 
-jobs:  ### jobs
-  build: ### first job name 
-    runs-on: ubuntu-latest ## vm or container is running ubuntu
+jobs:  #Jobs to run in the workflow
+  build:  #First job name 
+    runs-on: ubuntu-latest  # Running on a VM or container
 
-    steps: ### steps
-      - name: Checkout code ### first step
+    steps: #Steps to run in the job
+      - name: Checkout code  #First step
         uses: actions/checkout@v2
 
-      - name: Configure AWS credentials ### second step
+      - name: Configure AWS credentials  #Second step
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  ### This variable we are declared in github secrets
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"  #Access key ID from GitHub secrets:Declared in GitHub secrets/repository settings 
+          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}" #Secret access key from GitHub secrets:Declared in GitHub secrets/repository settings
+          aws-region: "${{ env.AWS_REGION }}" #Region to deploy the resources/Provided in Environment variables 
 
-      - name: Login to Amazon ECR ### step3
+      - name: Login to Amazon ECR  #Step 3 
         run: |
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-          docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          aws ecr get-login-password --region "${{ env.AWS_REGION }}" | \
+          docker login --username AWS --password-stdin "${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
 
-      - name: Build Docker image ### stp4
+      - name: Build and push Docker image  #Step 4    
         run: |
-          docker build -t ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.GIT_SHA }} ./day1
-          docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.GIT_SHA }}
-          
-  deploy: ### second job name
-    runs-on: ubuntu-latest ### This job is running another vm or container
-    needs: build ## need key-word we used for its depends up on the first job, incase first job failed it will skip the second job
+          docker build -t "${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.GIT_SHA }}" ./day1
+          docker push "${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.GIT_SHA }}"
 
-    steps:
+  deploy:  #Second job name   
+    runs-on: ubuntu-latest  # Running on a VM or container  
+    needs: build  #Dependency on the first job to run this job fails if the first job fails 
+
+    steps: 
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials #Configure AWS credentials to run the AWS CLI commands
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws-region: "${{ env.AWS_REGION }}"
 
-      - name: Get Public IP and SHA
+      - name: Get Public IP and SHA #Get the public IP of the EC2 instance and the commit ID
         run: |
-          # Retrieves the EC2 instance's public IP and sets the SHA
-          echo "EC2_PUBLIC_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=${{ env.AWS_EC2 }}" --query 'Reservations[*].Instances[*].PublicIpAddress' --output text)" >> "$GITHUB_ENV"  
-          echo "SHA: $GITHUB_SHA" # Output SHA for debugging and verification
+          echo "EC2_PUBLIC_IP=$(aws ec2 describe-instances --filters \"Name=tag:Name,Values=${{ env.AWS_EC2 }}\" --query 'Reservations[*].Instances[*].PublicIpAddress' --output text)" >> "$GITHUB_ENV"
+          echo "SHA: ${{ env.GIT_SHA }}"
 
-      - name: Execute Remote SSH Commands using SSH Key
+      - name: Execute Remote SSH Commands using SSH Key #execute remote commands on the EC2 instance
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ env.EC2_PUBLIC_IP }}
+          host: "${{ env.EC2_PUBLIC_IP }}"
           username: ec2-user
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: "${{ secrets.SSH_PRIVATE_KEY }}"
           port: 22
           script: |
-            # Cleans up existing containers and images
             echo "Cleaning up the VM"
-            docker rm -f $(docker ps -aq)
-            docker rmi -f $(docker images -q)
+            docker rm -f $(docker ps -aq) || true
+            docker rmi -f $(docker images -q) || true
             
-            # Logs in to ECR and runs the Docker container
-            echo "Running container"
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com  
-            docker run -td -p 3002:5000 ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.GIT_SHA }}
+            echo "Logging in to ECR and running the container"
+            aws ecr get-login-password --region "${{ env.AWS_REGION }}" | docker login --username AWS --password-stdin "${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+            docker run -td -p 3002:5000 "${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.GIT_SHA }}"
